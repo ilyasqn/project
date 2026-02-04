@@ -42,11 +42,11 @@ async def test_full_flow_product_created_to_ai_description(
     mock_rabbitmq_client.publish = capture_publish
 
     # Step 1: AI Service handles product.created
-    with patch("app.handlers.llm_client", mock_llm_client), \
-         patch("app.handlers.get_cached_description", new_callable=AsyncMock) as mock_cache_get, \
-         patch("app.handlers.cache_description", new_callable=AsyncMock) as mock_cache_set, \
-         patch("app.handlers.save_generation_history", new_callable=AsyncMock) as mock_save, \
-         patch("app.handlers.publish_ai_event", new_callable=AsyncMock) as mock_publish:
+    with patch("services.ai.app.handlers.llm_client", mock_llm_client), \
+            patch("services.ai.app.handlers.get_cached_description", new_callable=AsyncMock) as mock_cache_get, \
+            patch("services.ai.app.handlers.cache_description", new_callable=AsyncMock) as mock_cache_set, \
+            patch("services.ai.app.handlers.save_generation_history", new_callable=AsyncMock), \
+            patch("services.ai.app.handlers.publish_ai_event", new_callable=AsyncMock) as mock_publish:
 
         mock_cache_get.return_value = None
         mock_cache_set.return_value = True
