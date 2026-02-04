@@ -1,0 +1,186 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: microservices-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: microservices
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: microservices-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - microservices-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: microservices-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: microservices-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - microservices-network
+
+  # User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user/Dockerfile.dev
+    container_name: user-service
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/microservices
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./services/user/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - microservices-network
+
+  # Product Service
+  product-service:
+    build:
+      context: .
+      dockerfile: services/product/Dockerfile.dev
+    container_name: product-service
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/microservices
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      AI_SERVICE_URL: http://ai-service:8004
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/product/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - microservices-network
+
+  # Notification Service
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile.dev
+    container_name: notification-service
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DATABASE: microservices
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    ports:
+      - "8003:8003"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./services/notification/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - microservices-network
+
+  # AI Service
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai/Dockerfile.dev
+    container_name: ai-service
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-3.5-turbo}
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DATABASE: microservices
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8004:8004"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/ai/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  mongodb_data:
+  redis_data:

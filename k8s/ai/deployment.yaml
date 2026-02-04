@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+  namespace: microservices
+  labels:
+    app: ai-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+    spec:
+      containers:
+        - name: ai-service
+          image: ai-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8004
+          env:
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: RABBITMQ_URL
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: microservices-secrets
+                  key: OPENAI_API_KEY
+            - name: LLM_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: microservices-config
+                  key: LLM_MODEL
+            - name: MONGODB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: MONGODB_URL
+            - name: MONGODB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: microservices-config
+                  key: MONGODB_DATABASE
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: REDIS_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 30
+            periodSeconds: 10

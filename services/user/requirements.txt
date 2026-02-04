@@ -1,0 +1,8 @@
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+sqlalchemy[asyncio]==2.0.25
+asyncpg==0.29.0
+aio-pika==9.4.0
+pydantic[email]==2.6.1
+python-multipart==0.0.9
+prometheus-fastapi-instrumentator==6.1.0
