@@ -154,13 +154,16 @@ Run tests for each service:
 
 ```bash
 # AI Service tests
-cd services/ai && python -m pytest tests/ -v
+python3 -m pytest services/ai
 
 # Product Service tests
-cd services/product && python -m pytest tests/ -v
+python3 -m pytest services/product
 
 # Notification Service tests
-cd services/notification && python -m pytest tests/ -v
+python3 -m pytest services/notification
+
+# Integration tests
+python3 -m pytest tests/
 ```
 
 ## Useful Commands
