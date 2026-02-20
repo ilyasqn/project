@@ -6,3 +6,5 @@ aio-pika==9.4.0
 pydantic[email]==2.6.1
 python-multipart==0.0.9
 prometheus-fastapi-instrumentator==6.1.0
+bcrypt==4.1.2
+redis==5.0.1

@@ -115,18 +115,17 @@ kubectl wait --for=condition=ready pod -l app=redis -n microservices --timeout=1
 echo "Deploying User Service..."
 kubectl apply -f "$K8S_DIR/user/deployment.yaml"
 kubectl apply -f "$K8S_DIR/user/service.yaml"
+kubectl apply -f "$K8S_DIR/user/hpa.yaml"
 
 echo "Deploying Product Service..."
 kubectl apply -f "$K8S_DIR/product/deployment.yaml"
 kubectl apply -f "$K8S_DIR/product/service.yaml"
+kubectl apply -f "$K8S_DIR/product/hpa.yaml"
 
 echo "Deploying Notification Service..."
 kubectl apply -f "$K8S_DIR/notification/deployment.yaml"
 kubectl apply -f "$K8S_DIR/notification/service.yaml"
-
-echo "Deploying AI Service..."
-kubectl apply -f "$K8S_DIR/ai/deployment.yaml"
-kubectl apply -f "$K8S_DIR/ai/service.yaml"
+kubectl apply -f "$K8S_DIR/notification/hpa.yaml"
 
 # Deploy Monitoring Stack
 echo "Deploying Monitoring Stack (Prometheus, Loki, Promtail, Grafana)..."
@@ -140,7 +139,6 @@ echo "Waiting for services to be ready..."
 kubectl wait --for=condition=ready pod -l app=user-service -n microservices --timeout=120s
 kubectl wait --for=condition=ready pod -l app=product-service -n microservices --timeout=120s
 kubectl wait --for=condition=ready pod -l app=notification-service -n microservices --timeout=120s
-kubectl wait --for=condition=ready pod -l app=ai-service -n microservices --timeout=120s
 
 echo ""
 echo "================================================"
@@ -156,7 +154,6 @@ echo ""
 echo "  User Service:         http://${MINIKUBE_IP}:30001/docs"
 echo "  Product Service:      http://${MINIKUBE_IP}:30002/docs"
 echo "  Notification Service: http://${MINIKUBE_IP}:30003/docs"
-echo "  AI Service:           http://${MINIKUBE_IP}:30004/docs"
 echo ""
 echo "Infrastructure Services:"
 echo ""
@@ -175,7 +172,6 @@ echo "Health checks:"
 echo "  curl http://${MINIKUBE_IP}:30001/health"
 echo "  curl http://${MINIKUBE_IP}:30002/health"
 echo "  curl http://${MINIKUBE_IP}:30003/health"
-echo "  curl http://${MINIKUBE_IP}:30004/health"
 echo ""
 echo "To check pod status:"
 echo "  kubectl get pods -n microservices"

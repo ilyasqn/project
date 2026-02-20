@@ -6,7 +6,7 @@ metadata:
   labels:
     app: product-service
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       app: product-service
@@ -32,23 +32,40 @@ spec:
                 secretKeyRef:
                   name: database-url
                   key: RABBITMQ_URL
-            - name: AI_SERVICE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: microservices-config
-                  key: AI_SERVICE_URL
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
                   name: database-url
                   key: REDIS_URL
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: microservices-secrets
+                  key: OPENAI_API_KEY
+            - name: OPENAI_BASE_URL
+              value: "https://api.openai.com/v1"
+            - name: LLM_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: microservices-config
+                  key: LLM_MODEL
+            - name: MONGODB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: MONGODB_URL
+            - name: MONGODB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: microservices-config
+                  key: MONGODB_DATABASE
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
               memory: "256Mi"
-              cpu: "200m"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
           readinessProbe:
             httpGet:
               path: /health

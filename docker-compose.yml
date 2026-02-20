@@ -82,12 +82,15 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/microservices
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      REDIS_URL: redis://redis:6379
     ports:
       - "8001:8001"
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./services/user/app:/app/app
@@ -104,8 +107,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/microservices
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      AI_SERVICE_URL: http://ai-service:8004
       REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-3.5-turbo}
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DATABASE: microservices
     ports:
       - "8002:8002"
     depends_on:
@@ -114,6 +121,8 @@ services:
       rabbitmq:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
     volumes:
       - ./services/product/app:/app/app
@@ -142,35 +151,6 @@ services:
         condition: service_healthy
     volumes:
       - ./services/notification/app:/app/app
-      - ./shared:/app/shared
-    networks:
-      - microservices-network
-
-  # AI Service
-  ai-service:
-    build:
-      context: .
-      dockerfile: services/ai/Dockerfile.dev
-    container_name: ai-service
-    environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      LLM_MODEL: ${LLM_MODEL:-gpt-3.5-turbo}
-      MONGODB_URL: mongodb://mongodb:27017
-      MONGODB_DATABASE: microservices
-      REDIS_URL: redis://redis:6379
-    ports:
-      - "8004:8004"
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./services/ai/app:/app/app
       - ./shared:/app/shared
     networks:
       - microservices-network

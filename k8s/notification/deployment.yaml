@@ -6,7 +6,7 @@ metadata:
   labels:
     app: notification-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: notification-service
@@ -49,11 +49,11 @@ spec:
                   key: TELEGRAM_CHAT_ID
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
               memory: "256Mi"
               cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "400m"
           readinessProbe:
             httpGet:
               path: /health

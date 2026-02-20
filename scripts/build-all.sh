@@ -46,8 +46,8 @@ echo "Registry: ${REGISTRY:-local}"
 echo "Tag: $TAG"
 echo ""
 
-# Services to build
-SERVICES=("user" "product" "notification" "ai")
+# Services to build (AI service removed)
+SERVICES=("user" "product" "notification")
 
 cd "$PROJECT_ROOT"
 

@@ -113,16 +113,3 @@ class RabbitMQClient:
 
         await queue.consume(process_message)
         logger.info(f"Started consuming from queue {queue_name}")
-
-
-# Singleton instance
-_rabbitmq_client: RabbitMQClient | None = None
-
-
-async def get_rabbitmq_client() -> RabbitMQClient:
-    """Get or create RabbitMQ client singleton."""
-    global _rabbitmq_client
-    if _rabbitmq_client is None:
-        _rabbitmq_client = RabbitMQClient()
-        await _rabbitmq_client.connect()
-    return _rabbitmq_client

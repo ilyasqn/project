@@ -1,75 +1,73 @@
 """Product Service FastAPI application."""
 
-import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
+import redis.asyncio as aioredis
 from fastapi import FastAPI
+from motor.motor_asyncio import AsyncIOMotorClient
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from .consumer import close_consumer, start_consuming
-from .database import init_db
-from .events import close_publisher
-from .redis_cache import close_redis
-from .routes import router
+from . import dependencies
+from .infrastructure.external.llm_adapter import OpenAILLMAdapter
+from .infrastructure.messaging.rabbitmq_publisher import RabbitMQProductEventPublisher
+from .infrastructure.persistence.database import Base, create_engine, create_session_factory
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-_consumer_task: asyncio.Task | None = None
+
+def create_app() -> FastAPI:
+    database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/microservices")
+    rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    openai_api_key = os.getenv("OPENAI_API_KEY", "")
+    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    llm_model = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
+    mongodb_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+    mongodb_database = os.getenv("MONGODB_DATABASE", "microservices")
+
+    engine = create_engine(database_url)
+    session_factory = create_session_factory(engine)
+    redis_client = aioredis.from_url(redis_url, decode_responses=True, max_connections=20)
+    event_publisher = RabbitMQProductEventPublisher(rabbitmq_url)
+    llm_service = OpenAILLMAdapter(api_key=openai_api_key, base_url=openai_base_url, model=llm_model)
+    mongo_client = AsyncIOMotorClient(mongodb_url)
+    mongo_db = mongo_client[mongodb_database]
+
+    dependencies.init(session_factory, redis_client, event_publisher, llm_service, mongo_db)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        logger.info("Starting Product Service...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Product Service started successfully")
+        yield
+        logger.info("Shutting down Product Service...")
+        await event_publisher.close()
+        await redis_client.close()
+        mongo_client.close()
+        await engine.dispose()
+
+    application = FastAPI(
+        title="Product Service",
+        description="Microservice for product management",
+        version="2.0.0",
+        lifespan=lifespan,
+    )
+
+    from .presentation.routes.product_routes import router
+    application.include_router(router)
+
+    Instrumentator().instrument(application).expose(application)
+
+    @application.get("/health")
+    async def health_check():
+        return {"status": "healthy", "service": "product"}
+
+    return application
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan handler."""
-    global _consumer_task
-
-    # Startup
-    logger.info("Starting Product Service...")
-    await init_db()
-
-    # Start RabbitMQ consumer as background task
-    _consumer_task = asyncio.create_task(start_consuming())
-    logger.info("Started RabbitMQ consumer task")
-
-    logger.info("Product Service started successfully")
-
-    yield
-
-    # Shutdown
-    logger.info("Shutting down Product Service...")
-
-    # Cancel consumer task
-    if _consumer_task:
-        _consumer_task.cancel()
-        try:
-            await _consumer_task
-        except asyncio.CancelledError:
-            pass
-
-    await close_consumer()
-    await close_publisher()
-    await close_redis()
-    logger.info("Product Service shut down successfully")
-
-
-app = FastAPI(
-    title="Product Service",
-    description="Microservice for product management",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
-app.include_router(router)
-
-# Prometheus metrics
-Instrumentator().instrument(app).expose(app)
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "product"}
+app = create_app()
